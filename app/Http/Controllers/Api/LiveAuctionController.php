@@ -19,16 +19,16 @@ class LiveAuctionController extends Controller
     // ── Compute increment for the NEXT bid given current bid count ──────────
     private function computeIncrement(int $playerBidCount): int
     {
-        $type = Setting::get('bid_increment_type', 'fixed');
+        $type = Setting::get('bid_increment_type', 'tiered');
 
         if ($type === 'fixed') {
-            return max(1, (int) Setting::get('bid_increment_fixed', 25));
+            return max(1, (int) Setting::get('bid_increment_fixed', 1000));
         }
 
         $tiers  = array_values(array_filter(
-            array_map('intval', explode(',', Setting::get('bid_increment_tiers', '25,50,100,200')))
+            array_map('intval', explode(',', Setting::get('bid_increment_tiers', '100,500,1000,2000')))
         ));
-        if (empty($tiers)) return 25;
+        if (empty($tiers)) return 100;
 
         $nBids     = max(1, (int) Setting::get('bid_tier_every_n_bids', 3));
         $tierIndex = min((int) floor($playerBidCount / $nBids), count($tiers) - 1);
@@ -49,7 +49,7 @@ class LiveAuctionController extends Controller
         if ($playerBidCount === 0) {
             // No bids yet — opening bid is bid_start_amount
             $start = (int) Setting::get('bid_start_amount', 25);
-            return $start > 0 ? $start : max(1, (int) $state->current_bid);
+            return $start > 0 ? $start : 25;
         }
 
         return (int) $state->current_bid + $this->computeIncrement($playerBidCount);
@@ -193,7 +193,7 @@ class LiveAuctionController extends Controller
             return response()->json(['message' => 'Insufficient budget'], 422);
         }
 
-        if ($state->current_highest_bidder_id === $data['team_id']) {
+        if ((int) $state->current_highest_bidder_id === (int) $data['team_id']) {
             return response()->json(['message' => 'Your team is already the highest bidder'], 422);
         }
 
@@ -213,6 +213,7 @@ class LiveAuctionController extends Controller
             'timer_seconds'             => $auction->bid_timer,
             'timer_started_at'          => now(),
         ]);
+        $state->refresh();
         $state->load(['currentPlayer', 'currentHighestBidder']);
 
         $this->withNextBid($auction, $state);
