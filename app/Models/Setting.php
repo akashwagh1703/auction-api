@@ -16,13 +16,29 @@ class Setting extends Model
         return static::cast($setting->value, $setting->type);
     }
 
-    // Set a single setting value
+    // Set a single setting value — preserves existing type, infers type for new keys
     public static function set(string $key, mixed $value): void
     {
-        static::updateOrCreate(
-            ['key' => $key],
-            ['value' => is_array($value) ? json_encode($value) : (string) $value]
-        );
+        $existing = static::where('key', $key)->first();
+
+        if ($existing) {
+            $existing->update([
+                'value' => is_array($value) ? json_encode($value) : (string) $value,
+            ]);
+        } else {
+            // Infer type for new keys
+            $type = match (true) {
+                is_bool($value)              => 'boolean',
+                is_int($value)||is_float($value) => 'number',
+                is_array($value)             => 'json',
+                default                      => 'string',
+            };
+            static::create([
+                'key'   => $key,
+                'value' => is_array($value) ? json_encode($value) : (string) $value,
+                'type'  => $type,
+            ]);
+        }
     }
 
     // Return all settings as a flat key => value object

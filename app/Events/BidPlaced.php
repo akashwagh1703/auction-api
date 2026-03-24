@@ -28,10 +28,10 @@ class BidPlaced implements ShouldBroadcastNow
     public function broadcastWith(): array
     {
         return [
-            'id'        => $this->bid->id,
-            'player_id' => $this->bid->player_id,
-            'team_id'   => $this->bid->team_id,
-            'amount'    => $this->bid->amount,
+            'id'        => (int) $this->bid->id,
+            'player_id' => (int) $this->bid->player_id,
+            'team_id'   => (int) $this->bid->team_id,
+            'amount'    => (int) $this->bid->amount,
             'team'      => $this->bid->team,
             'created_at'=> $this->bid->created_at->toISOString(),
         ];

@@ -24,6 +24,8 @@ class AuctionController extends Controller
     {
         $data = $request->validate([
             'name'                 => 'required|string|max:150',
+            'sport'                => 'nullable|string|max:50',
+            'date'                 => 'nullable|date',
             'description'          => 'nullable|string',
             'bid_timer'            => 'required|integer|min:10|max:120',
             'bid_increments'       => 'required|array|min:1',
@@ -38,6 +40,8 @@ class AuctionController extends Controller
 
         $auction = Auction::create([
             'name'                 => $data['name'],
+            'sport'                => $data['sport'] ?? null,
+            'date'                 => $data['date'] ?? null,
             'description'          => $data['description'] ?? null,
             'status'               => 'draft',
             'bid_timer'            => $data['bid_timer'],
@@ -76,6 +80,8 @@ class AuctionController extends Controller
     {
         $data = $request->validate([
             'name'                 => 'sometimes|string|max:150',
+            'sport'                => 'nullable|string|max:50',
+            'date'                 => 'nullable|date',
             'description'          => 'nullable|string',
             'status'               => 'sometimes|in:draft,active,completed',
             'bid_timer'            => 'sometimes|integer|min:10|max:120',

@@ -6,7 +6,7 @@ use Illuminate\Database\Eloquent\Model;
 
 class Auction extends Model
 {
-    protected $fillable = ['name', 'description', 'status', 'bid_timer', 'bid_increments', 'budget_per_team', 'max_players_per_team'];
+    protected $fillable = ['name', 'sport', 'date', 'description', 'status', 'bid_timer', 'bid_increments', 'budget_per_team', 'max_players_per_team'];
 
     protected $casts = ['bid_increments' => 'array'];
 

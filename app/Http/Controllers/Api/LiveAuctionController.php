@@ -10,6 +10,7 @@ use App\Http\Resources\BidResource;
 use App\Models\Auction;
 use App\Models\Bid;
 use App\Models\Player;
+use App\Models\Setting;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 
@@ -87,11 +88,15 @@ class LiveAuctionController extends Controller
 
         $player = Player::find($data['player_id']);
 
+        // Use global bid_start_amount setting if set, otherwise fall back to player base_price
+        $startAmount = (int) Setting::get('bid_start_amount', 0);
+        $openingBid  = $startAmount > 0 ? $startAmount : (int) $player->base_price;
+
         $state = $auction->liveState;
         $state->update([
             'current_player_id'         => $data['player_id'],
             'current_highest_bidder_id' => null,
-            'current_bid'               => $player->base_price,
+            'current_bid'               => $openingBid,
             'timer_seconds'             => $auction->bid_timer,
             'timer_started_at'          => now(),
         ]);
@@ -119,12 +124,44 @@ class LiveAuctionController extends Controller
             return response()->json(['message' => 'Bid must be higher than current bid of ' . $state->current_bid], 422);
         }
 
+        // Enforce minimum increment from settings
+        $incrementType = Setting::get('bid_increment_type', 'tiered');
+        if ($incrementType === 'fixed') {
+            $minIncrement = (int) Setting::get('bid_increment_fixed', 1000);
+        } else {
+            $tiers       = array_filter(array_map('intval', explode(',', Setting::get('bid_increment_tiers', '100,500,1000,2000'))));
+            $tiers       = array_values($tiers);
+            $nBids       = (int) Setting::get('bid_tier_every_n_bids', 3);
+            $playerBids  = Bid::where('auction_id', $auction->id)
+                              ->where('player_id', $state->current_player_id)
+                              ->count();
+            $tierIndex   = min((int) floor($playerBids / max($nBids, 1)), count($tiers) - 1);
+            $minIncrement = $tiers[$tierIndex] ?? $tiers[0] ?? 100;
+        }
+
+        $expectedMin = $state->current_bid + $minIncrement;
+        if ($data['amount'] < $expectedMin) {
+            return response()->json([
+                'message' => "Minimum bid is ₹{$expectedMin} (current ₹{$state->current_bid} + increment ₹{$minIncrement})"
+            ], 422);
+        }
+
+        // Enforce max bid cap if set
+        $maxAmount = (int) Setting::get('bid_max_amount', 0);
+        if ($maxAmount > 0 && $data['amount'] > $maxAmount) {
+            return response()->json(['message' => "Bid cannot exceed the maximum cap of ₹{$maxAmount}"], 422);
+        }
+
         $auctionTeam = DB::table('auction_teams')
             ->where('auction_id', $auction->id)
             ->where('team_id', $data['team_id'])
             ->first();
 
-        if (!$auctionTeam || $auctionTeam->budget_remaining < $data['amount']) {
+        if (!$auctionTeam) {
+            return response()->json(['message' => 'Team is not part of this auction'], 422);
+        }
+
+        if ($auctionTeam->budget_remaining < $data['amount']) {
             return response()->json(['message' => 'Insufficient budget'], 422);
         }
 
