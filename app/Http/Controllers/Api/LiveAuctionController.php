@@ -120,10 +120,6 @@ class LiveAuctionController extends Controller
             return response()->json(['message' => 'No active player up for bid'], 422);
         }
 
-        if ($data['amount'] <= $state->current_bid) {
-            return response()->json(['message' => 'Bid must be higher than current bid of ' . $state->current_bid], 422);
-        }
-
         // Enforce minimum increment from settings
         $incrementType = Setting::get('bid_increment_type', 'tiered');
         if ($incrementType === 'fixed') {
