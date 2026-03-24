@@ -20,6 +20,7 @@ class AuctionLiveStateResource extends JsonResource
             'timer_started_at'          => $this->timer_started_at?->toISOString(),
             'current_player'            => new PlayerResource($this->whenLoaded('currentPlayer')),
             'current_highest_bidder'    => new TeamResource($this->whenLoaded('currentHighestBidder')),
+            'next_bid'                  => $this->next_bid ?? 0,
         ];
     }
 }

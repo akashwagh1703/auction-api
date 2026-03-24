@@ -16,11 +16,43 @@ use Illuminate\Support\Facades\DB;
 
 class LiveAuctionController extends Controller
 {
+    // ── Compute next bid amount from settings ──────────────────────────────
+    private function computeNextBid(Auction $auction, $state): int
+    {
+        if (!$state->current_player_id) return 0;
+
+        $type = Setting::get('bid_increment_type', 'tiered');
+
+        if ($type === 'fixed') {
+            $increment = (int) Setting::get('bid_increment_fixed', 1000);
+        } else {
+            $tiers      = array_values(array_filter(
+                array_map('intval', explode(',', Setting::get('bid_increment_tiers', '100,500,1000,2000')))
+            ));
+            $nBids      = max((int) Setting::get('bid_tier_every_n_bids', 3), 1);
+            $playerBids = Bid::where('auction_id', $auction->id)
+                             ->where('player_id', $state->current_player_id)
+                             ->count();
+            $tierIndex  = min((int) floor($playerBids / $nBids), count($tiers) - 1);
+            $increment  = $tiers[$tierIndex] ?? $tiers[0] ?? 100;
+        }
+
+        return (int) $state->current_bid + $increment;
+    }
+
+    // ── Attach next_bid to state and broadcast ─────────────────────────────
+    private function withNextBid(Auction $auction, $state): mixed
+    {
+        $state->next_bid = $this->computeNextBid($auction, $state);
+        return $state;
+    }
+
+    // ── Routes ─────────────────────────────────────────────────────────────
+
     public function state(Auction $auction)
     {
         $state = $auction->liveState()->with(['currentPlayer', 'currentHighestBidder'])->firstOrFail();
-
-        return new AuctionLiveStateResource($state);
+        return new AuctionLiveStateResource($this->withNextBid($auction, $state));
     }
 
     public function start(Auction $auction)
@@ -35,7 +67,7 @@ class LiveAuctionController extends Controller
         $state->update(['is_live' => true]);
         $state->load(['currentPlayer', 'currentHighestBidder']);
 
-        broadcast(new AuctionStateUpdated($state));
+        broadcast(new AuctionStateUpdated($this->withNextBid($auction, $state)));
 
         return new AuctionLiveStateResource($state);
     }
@@ -52,7 +84,7 @@ class LiveAuctionController extends Controller
         ]);
         $state->load(['currentPlayer', 'currentHighestBidder']);
 
-        broadcast(new AuctionStateUpdated($state));
+        broadcast(new AuctionStateUpdated($this->withNextBid($auction, $state)));
 
         return new AuctionLiveStateResource($state);
     }
@@ -88,7 +120,6 @@ class LiveAuctionController extends Controller
 
         $player = Player::find($data['player_id']);
 
-        // Use global bid_start_amount setting if set, otherwise fall back to player base_price
         $startAmount = (int) Setting::get('bid_start_amount', 0);
         $openingBid  = $startAmount > 0 ? $startAmount : (int) $player->base_price;
 
@@ -102,9 +133,9 @@ class LiveAuctionController extends Controller
         ]);
         $state->load(['currentPlayer', 'currentHighestBidder']);
 
-        broadcast(new AuctionStateUpdated($state));
+        broadcast(new AuctionStateUpdated($this->withNextBid($auction, $state)));
 
-        return new AuctionLiveStateResource($state);
+        return new AuctionLiveStateResource($this->withNextBid($auction, $state));
     }
 
     public function placeBid(Request $request, Auction $auction)
@@ -120,29 +151,29 @@ class LiveAuctionController extends Controller
             return response()->json(['message' => 'No active player up for bid'], 422);
         }
 
-        // Enforce minimum increment from settings
-        $incrementType = Setting::get('bid_increment_type', 'tiered');
-        if ($incrementType === 'fixed') {
+        // Compute expected minimum from settings
+        $type = Setting::get('bid_increment_type', 'tiered');
+        if ($type === 'fixed') {
             $minIncrement = (int) Setting::get('bid_increment_fixed', 1000);
         } else {
-            $tiers       = array_filter(array_map('intval', explode(',', Setting::get('bid_increment_tiers', '100,500,1000,2000'))));
-            $tiers       = array_values($tiers);
-            $nBids       = (int) Setting::get('bid_tier_every_n_bids', 3);
+            $tiers       = array_values(array_filter(
+                array_map('intval', explode(',', Setting::get('bid_increment_tiers', '100,500,1000,2000')))
+            ));
+            $nBids       = max((int) Setting::get('bid_tier_every_n_bids', 3), 1);
             $playerBids  = Bid::where('auction_id', $auction->id)
                               ->where('player_id', $state->current_player_id)
                               ->count();
-            $tierIndex   = min((int) floor($playerBids / max($nBids, 1)), count($tiers) - 1);
+            $tierIndex   = min((int) floor($playerBids / $nBids), count($tiers) - 1);
             $minIncrement = $tiers[$tierIndex] ?? $tiers[0] ?? 100;
         }
 
-        $expectedMin = $state->current_bid + $minIncrement;
+        $expectedMin = (int) $state->current_bid + $minIncrement;
         if ($data['amount'] < $expectedMin) {
             return response()->json([
                 'message' => "Minimum bid is ₹{$expectedMin} (current ₹{$state->current_bid} + increment ₹{$minIncrement})"
             ], 422);
         }
 
-        // Enforce max bid cap if set
         $maxAmount = (int) Setting::get('bid_max_amount', 0);
         if ($maxAmount > 0 && $data['amount'] > $maxAmount) {
             return response()->json(['message' => "Bid cannot exceed the maximum cap of ₹{$maxAmount}"], 422);
@@ -180,7 +211,7 @@ class LiveAuctionController extends Controller
         $state->load(['currentPlayer', 'currentHighestBidder']);
 
         broadcast(new BidPlaced($bid));
-        broadcast(new AuctionStateUpdated($state));
+        broadcast(new AuctionStateUpdated($this->withNextBid($auction, $state)));
 
         return new BidResource($bid);
     }
@@ -217,7 +248,7 @@ class LiveAuctionController extends Controller
         });
 
         $state->load(['currentPlayer', 'currentHighestBidder']);
-        broadcast(new AuctionStateUpdated($state));
+        broadcast(new AuctionStateUpdated($this->withNextBid($auction, $state)));
 
         return new AuctionLiveStateResource($state);
     }
@@ -243,7 +274,7 @@ class LiveAuctionController extends Controller
         ]);
         $state->load(['currentPlayer', 'currentHighestBidder']);
 
-        broadcast(new AuctionStateUpdated($state));
+        broadcast(new AuctionStateUpdated($this->withNextBid($auction, $state)));
 
         return new AuctionLiveStateResource($state);
     }

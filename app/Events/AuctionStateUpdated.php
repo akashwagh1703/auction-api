@@ -32,6 +32,7 @@ class AuctionStateUpdated implements ShouldBroadcastNow
             'current_player_id'        => $this->state->current_player_id ? (int) $this->state->current_player_id : null,
             'current_highest_bidder_id'=> $this->state->current_highest_bidder_id ? (int) $this->state->current_highest_bidder_id : null,
             'current_bid'              => (int) $this->state->current_bid,
+            'next_bid'                 => (int) ($this->state->next_bid ?? 0),
             'timer_seconds'            => (int) $this->state->timer_seconds,
             'timer_started_at'         => $this->state->timer_started_at?->toISOString(),
             'current_player'           => $this->state->currentPlayer,
