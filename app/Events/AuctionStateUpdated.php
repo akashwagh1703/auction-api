@@ -13,7 +13,13 @@ class AuctionStateUpdated implements ShouldBroadcastNow
 {
     use Dispatchable, InteractsWithSockets, SerializesModels;
 
-    public function __construct(public AuctionLiveState $state) {}
+    public int $nextBid;
+
+    public function __construct(public AuctionLiveState $state)
+    {
+        // Capture next_bid before SerializesModels drops the dynamic property
+        $this->nextBid = (int) ($state->next_bid ?? 0);
+    }
 
     public function broadcastOn(): array
     {
@@ -32,7 +38,7 @@ class AuctionStateUpdated implements ShouldBroadcastNow
             'current_player_id'        => $this->state->current_player_id ? (int) $this->state->current_player_id : null,
             'current_highest_bidder_id'=> $this->state->current_highest_bidder_id ? (int) $this->state->current_highest_bidder_id : null,
             'current_bid'              => (int) $this->state->current_bid,
-            'next_bid'                 => (int) ($this->state->next_bid ?? 0),
+            'next_bid'                 => $this->nextBid,
             'timer_seconds'            => (int) $this->state->timer_seconds,
             'timer_started_at'         => $this->state->timer_started_at?->toISOString(),
             'current_player'           => $this->state->currentPlayer,
