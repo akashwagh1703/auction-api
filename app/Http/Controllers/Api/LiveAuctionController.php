@@ -9,50 +9,59 @@ use App\Http\Resources\AuctionLiveStateResource;
 use App\Http\Resources\BidResource;
 use App\Models\Auction;
 use App\Models\Bid;
-use App\Models\Player;
 use App\Models\Setting;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 
 class LiveAuctionController extends Controller
 {
-    // ── Compute increment for the NEXT bid given current bid count ──────────
-    private function computeIncrement(int $playerBidCount): int
+    // ── Compute increment based on current bid amount (price-threshold model) ─
+    // bid_increment_thresholds format: "200:25,max:50"
+    // means: current_bid < 200 → +25, current_bid >= 200 → +50
+    private function computeIncrement(int $currentBid): int
     {
-        $type = Setting::get('bid_increment_type', 'tiered');
+        $type = Setting::get('bid_increment_type', 'threshold');
 
         if ($type === 'fixed') {
-            return max(1, (int) Setting::get('bid_increment_fixed', 1000));
+            return max(1, (int) Setting::get('bid_increment_fixed', 25));
         }
 
-        $tiers  = array_values(array_filter(
-            array_map('intval', explode(',', Setting::get('bid_increment_tiers', '100,500,1000,2000')))
-        ));
-        if (empty($tiers)) return 100;
+        // threshold mode — parse "200:25,max:50"
+        $raw = Setting::get('bid_increment_thresholds', '200:25,max:50');
+        $segments = array_filter(array_map('trim', explode(',', $raw)));
 
-        $nBids     = max(1, (int) Setting::get('bid_tier_every_n_bids', 3));
-        $tierIndex = min((int) floor($playerBidCount / $nBids), count($tiers) - 1);
-        return $tiers[$tierIndex];
+        $increment = null;
+        foreach ($segments as $segment) {
+            [$limit, $inc] = array_map('trim', explode(':', $segment));
+            $inc = (int) $inc;
+            if (strtolower($limit) === 'max') {
+                $increment = $inc; // fallback for any amount above all thresholds
+                break;
+            }
+            if ($currentBid < (int) $limit) {
+                $increment = $inc;
+                break;
+            }
+        }
+
+        return max(1, $increment ?? 25);
     }
 
     // ── Compute the exact amount the next bidder must send ──────────────────
     // When no bids placed yet → next_bid = bid_start_amount (opening price)
-    // When bids exist         → next_bid = current_bid + increment
+    // When bids exist         → next_bid = current_bid + increment(current_bid)
     private function computeNextBid(Auction $auction, $state): int
     {
         if (!$state->current_player_id) return 0;
 
-        $playerBidCount = Bid::where('auction_id', $auction->id)
-                             ->where('player_id', $state->current_player_id)
-                             ->count();
+        $currentBid = (int) $state->current_bid;
 
-        if ($playerBidCount === 0) {
-            // No bids yet — opening bid is bid_start_amount
+        if ($currentBid === 0) {
             $start = (int) Setting::get('bid_start_amount', 25);
             return $start > 0 ? $start : 25;
         }
 
-        return (int) $state->current_bid + $this->computeIncrement($playerBidCount);
+        return $currentBid + $this->computeIncrement($currentBid);
     }
 
     // ── Attach next_bid to state object (also called by AuctionController) ──
