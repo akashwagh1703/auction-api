@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
+use App\Http\Controllers\Api\LiveAuctionController;
 use App\Http\Resources\AuctionResource;
 use App\Models\Auction;
 use App\Models\AuctionLiveState;
@@ -16,6 +17,13 @@ class AuctionController extends Controller
             ->withCount(['teams', 'players'])
             ->orderByDesc('created_at')
             ->get();
+
+        $liveController = new LiveAuctionController;
+        foreach ($auctions as $auction) {
+            if ($auction->liveState) {
+                $liveController->computeAndAttachNextBid($auction, $auction->liveState);
+            }
+        }
 
         return AuctionResource::collection($auctions);
     }
@@ -73,7 +81,11 @@ class AuctionController extends Controller
 
     public function show(Auction $auction)
     {
-        return new AuctionResource($auction->load(['teams', 'players', 'liveState']));
+        $auction->load(['teams', 'players', 'liveState']);
+        if ($auction->liveState) {
+            (new LiveAuctionController)->computeAndAttachNextBid($auction, $auction->liveState);
+        }
+        return new AuctionResource($auction);
     }
 
     public function update(Request $request, Auction $auction)
@@ -92,8 +104,11 @@ class AuctionController extends Controller
         ]);
 
         $auction->update($data);
-
-        return new AuctionResource($auction->load(['teams', 'players', 'liveState']));
+        $auction->load(['teams', 'players', 'liveState']);
+        if ($auction->liveState) {
+            (new LiveAuctionController)->computeAndAttachNextBid($auction, $auction->liveState);
+        }
+        return new AuctionResource($auction);
     }
 
     public function destroy(Auction $auction)

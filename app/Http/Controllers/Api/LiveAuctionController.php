@@ -55,11 +55,16 @@ class LiveAuctionController extends Controller
         return (int) $state->current_bid + $this->computeIncrement($playerBidCount);
     }
 
-    // ── Attach next_bid to state object ─────────────────────────────────────
-    private function withNextBid(Auction $auction, $state): mixed
+    // ── Attach next_bid to state object (also called by AuctionController) ──
+    public function computeAndAttachNextBid(Auction $auction, $state): mixed
     {
         $state->next_bid = $this->computeNextBid($auction, $state);
         return $state;
+    }
+
+    private function withNextBid(Auction $auction, $state): mixed
+    {
+        return $this->computeAndAttachNextBid($auction, $state);
     }
 
     // ── Routes ──────────────────────────────────────────────────────────────
