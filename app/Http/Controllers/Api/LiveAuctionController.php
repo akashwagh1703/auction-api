@@ -174,18 +174,23 @@ class LiveAuctionController extends Controller
             'amount'  => 'required|integer|min:1',
         ]);
 
-        $state = $auction->liveState;
+        // Always fresh-fetch state to avoid Eloquent relationship cache
+        $state = \App\Models\AuctionLiveState::where('auction_id', $auction->id)->lockForUpdate()->firstOrFail();
 
         if (!$state->is_live || !$state->current_player_id) {
             return response()->json(['message' => 'No active player up for bid'], 422);
         }
 
-        // Compute expected next bid server-side
+        if ((int) $state->current_highest_bidder_id === (int) $data['team_id']) {
+            return response()->json(['message' => 'Your team is already the highest bidder'], 422);
+        }
+
         $expectedAmount = $this->computeNextBid($auction, $state);
 
-        if ($data['amount'] < $expectedAmount) {
+        if ($data['amount'] !== $expectedAmount) {
             return response()->json([
-                'message' => "Minimum bid is ₹{$expectedAmount}",
+                'message'  => "Bid amount must be exactly ₹{$expectedAmount}",
+                'next_bid' => $expectedAmount,
             ], 422);
         }
 
@@ -205,10 +210,6 @@ class LiveAuctionController extends Controller
 
         if ($auctionTeam->budget_remaining < $data['amount']) {
             return response()->json(['message' => 'Insufficient budget'], 422);
-        }
-
-        if ((int) $state->current_highest_bidder_id === (int) $data['team_id']) {
-            return response()->json(['message' => 'Your team is already the highest bidder'], 422);
         }
 
         $bid = Bid::create([
