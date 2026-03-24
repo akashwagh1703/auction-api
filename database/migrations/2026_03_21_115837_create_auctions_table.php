@@ -11,8 +11,6 @@ return new class extends Migration
         Schema::create('auctions', function (Blueprint $table) {
             $table->id();
             $table->string('name');
-            $table->string('sport')->nullable();
-            $table->date('date')->nullable();
             $table->text('description')->nullable();
             $table->enum('status', ['draft', 'active', 'completed'])->default('draft');
             $table->unsignedSmallInteger('bid_timer')->default(30);
