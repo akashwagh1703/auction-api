@@ -8,11 +8,15 @@ use App\Http\Controllers\Api\PlayerController;
 use App\Http\Controllers\Api\TeamController;
 use App\Http\Controllers\Api\UserController;
 use App\Http\Controllers\Api\ResetController;
+use App\Http\Controllers\Api\SettingsController;
 use Illuminate\Support\Facades\Route;
 
 Route::prefix('v1')->group(function () {
 
     Route::get('/ping', fn() => response()->json(['message' => 'Auction API v1 is running', 'status' => 'ok']));
+
+    // Settings — GET is public (login page needs branding)
+    Route::get('/settings', [SettingsController::class, 'index']);
 
     // Auth — public
     Route::post('/login', [AuthController::class, 'login']);
@@ -81,6 +85,11 @@ Route::prefix('v1')->group(function () {
             Route::delete('/users/{user}',[UserController::class, 'destroy']);
             // Reset all data
             Route::post('/reset',         [ResetController::class, 'reset']);
+            // Settings write — admin only
+            Route::put('/settings',                [SettingsController::class, 'update']);
+            Route::post('/settings/logo',          [SettingsController::class, 'uploadLogo']);
+            Route::put('/settings/password',       [SettingsController::class, 'changePassword']);
+            Route::put('/settings/profile',        [SettingsController::class, 'updateProfile']);
         });
 
     });
