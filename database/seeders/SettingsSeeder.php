@@ -27,7 +27,7 @@ class SettingsSeeder extends Seeder
             ['key' => 'default_bid_increments',      'value' => '10000,25000,50000,100000', 'type' => 'string'],
 
             // Bidding rules
-            ['key' => 'bid_start_amount',       'value' => '100',          'type' => 'number'],
+            ['key' => 'bid_start_amount',       'value' => '25',           'type' => 'number'],
             ['key' => 'bid_increment_type',     'value' => 'tiered',       'type' => 'string'],
             ['key' => 'bid_increment_fixed',    'value' => '1000',         'type' => 'number'],
             ['key' => 'bid_increment_tiers',    'value' => '100,500,1000,2000', 'type' => 'string'],
