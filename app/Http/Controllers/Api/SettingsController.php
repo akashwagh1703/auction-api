@@ -30,12 +30,11 @@ class SettingsController extends Controller
             'default_budget_per_team'    => 'sometimes|integer|min:1',
             'default_max_players'        => 'sometimes|integer|min:1',
             'default_bid_increments'     => 'sometimes|string|max:200',
-            'bid_start_amount'           => 'sometimes|integer|min:0',
-            'bid_increment_type'         => 'sometimes|in:fixed,tiered',
-            'bid_increment_fixed'        => 'sometimes|integer|min:1',
-            'bid_increment_tiers'        => 'sometimes|string|max:200',
-            'bid_tier_every_n_bids'      => 'sometimes|integer|min:1|max:20',
-            'bid_max_amount'             => 'sometimes|integer|min:0',
+            'bid_start_amount'             => 'sometimes|integer|min:0',
+            'bid_increment_type'           => 'sometimes|in:fixed,threshold',
+            'bid_increment_fixed'          => 'sometimes|integer|min:1',
+            'bid_increment_thresholds'     => 'sometimes|string|max:500',
+            'bid_max_amount'               => 'sometimes|integer|min:0',
         ]);
 
         foreach ($data as $key => $value) {
