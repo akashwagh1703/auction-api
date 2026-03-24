@@ -212,6 +212,18 @@ class LiveAuctionController extends Controller
             return response()->json(['message' => 'Insufficient budget'], 422);
         }
 
+        $maxPlayers = (int) $auction->max_players_per_team;
+        if ($maxPlayers > 0) {
+            $soldCount = DB::table('auction_players')
+                ->where('auction_id', $auction->id)
+                ->where('sold_to_team_id', $data['team_id'])
+                ->where('status', 'sold')
+                ->count();
+            if ($soldCount >= $maxPlayers) {
+                return response()->json(['message' => "Team has reached the maximum of {$maxPlayers} players"], 422);
+            }
+        }
+
         $bid = Bid::create([
             'auction_id' => $auction->id,
             'player_id'  => $state->current_player_id,
@@ -302,6 +314,33 @@ class LiveAuctionController extends Controller
         broadcast(new AuctionStateUpdated($state));
 
         return new AuctionLiveStateResource($state);
+    }
+
+    public function reAuction(Request $request, Auction $auction)
+    {
+        $data = $request->validate([
+            'player_id' => 'nullable|integer|exists:players,id',
+        ]);
+
+        $query = DB::table('auction_players')
+            ->where('auction_id', $auction->id)
+            ->where('status', 'unsold');
+
+        if (!empty($data['player_id'])) {
+            $query->where('player_id', $data['player_id']);
+        }
+
+        $updated = $query->update([
+            'status'          => 'pending',
+            'sold_to_team_id' => null,
+            'sold_price'      => null,
+        ]);
+
+        if (!$updated) {
+            return response()->json(['message' => 'No unsold players found'], 422);
+        }
+
+        return response()->json(['message' => "Re-queued {$updated} player(s) for auction", 'count' => $updated]);
     }
 
     public function bids(Auction $auction)

@@ -68,6 +68,7 @@ Route::prefix('v1')->group(function () {
             Route::post('/auctions/{auction}/next-player', [LiveAuctionController::class, 'nextPlayer']);
             Route::post('/auctions/{auction}/sold',        [LiveAuctionController::class, 'soldPlayer']);
             Route::post('/auctions/{auction}/unsold',      [LiveAuctionController::class, 'markUnsold']);
+            Route::post('/auctions/{auction}/re-auction',  [LiveAuctionController::class, 'reAuction']);
         });
         // Place bid — owners + admin
         Route::middleware('role:admin,owner')->post('/auctions/{auction}/bid', [LiveAuctionController::class, 'placeBid']);
