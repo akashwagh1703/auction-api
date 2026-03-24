@@ -232,6 +232,7 @@ class LiveAuctionController extends Controller
         $state->load(['currentPlayer', 'currentHighestBidder']);
 
         $this->withNextBid($auction, $state);
+        $bid->next_bid = $state->next_bid;
         broadcast(new BidPlaced($bid));
         broadcast(new AuctionStateUpdated($state));
 
@@ -240,7 +241,7 @@ class LiveAuctionController extends Controller
 
     public function soldPlayer(Auction $auction)
     {
-        $state = $auction->liveState;
+        $state = \App\Models\AuctionLiveState::where('auction_id', $auction->id)->lockForUpdate()->firstOrFail();
 
         if (!$state->current_player_id || !$state->current_highest_bidder_id) {
             return response()->json(['message' => 'No winning bid to confirm'], 422);
@@ -278,7 +279,7 @@ class LiveAuctionController extends Controller
 
     public function markUnsold(Auction $auction)
     {
-        $state = $auction->liveState;
+        $state = \App\Models\AuctionLiveState::where('auction_id', $auction->id)->lockForUpdate()->firstOrFail();
 
         if (!$state->current_player_id) {
             return response()->json(['message' => 'No current player'], 422);

@@ -16,6 +16,7 @@ class BidResource extends JsonResource
             'team_id'    => $this->team_id,
             'user_id'    => $this->user_id,
             'amount'     => $this->amount,
+            'next_bid'   => $this->next_bid ?? null,
             'team'       => new TeamResource($this->whenLoaded('team')),
             'player'     => new PlayerResource($this->whenLoaded('player')),
             'created_at' => $this->created_at,
