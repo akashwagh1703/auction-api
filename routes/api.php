@@ -18,8 +18,8 @@ Route::prefix('v1')->group(function () {
     // Settings — GET is public (login page needs branding)
     Route::get('/settings', [SettingsController::class, 'index']);
 
-    // Auth — public
-    Route::post('/login', [AuthController::class, 'login']);
+    // Auth — public (rate limited: 5 requests per minute)
+    Route::post('/login', [AuthController::class, 'login'])->middleware('throttle:5,1');
 
     // All authenticated routes
     Route::middleware('auth:sanctum')->group(function () {

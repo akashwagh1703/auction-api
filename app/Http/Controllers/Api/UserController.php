@@ -26,10 +26,12 @@ class UserController extends Controller
         $data = $request->validate([
             'name'      => 'required|string|max:100',
             'email'     => 'required|email|unique:users,email',
-            'password'  => 'required|string|min:6',
+            'password'  => 'required|string|min:8|regex:/^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]/',
             'role'      => 'required|in:admin,owner,player',
             'team_id'   => 'nullable|integer|exists:teams,id',
             'player_id' => 'nullable|integer|exists:players,id',
+        ], [
+            'password.regex' => 'Password must contain at least 8 characters, including uppercase, lowercase, number, and special character (@$!%*?&)',
         ]);
 
         $this->validateRoleAssignment($data);
@@ -58,10 +60,12 @@ class UserController extends Controller
         $data = $request->validate([
             'name'      => 'sometimes|string|max:100',
             'email'     => ['sometimes', 'email', Rule::unique('users', 'email')->ignore($user->id)],
-            'password'  => 'sometimes|string|min:6',
+            'password'  => 'sometimes|string|min:8|regex:/^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]/',
             'role'      => 'sometimes|in:admin,owner,player',
             'team_id'   => 'nullable|integer|exists:teams,id',
             'player_id' => 'nullable|integer|exists:players,id',
+        ], [
+            'password.regex' => 'Password must contain at least 8 characters, including uppercase, lowercase, number, and special character (@$!%*?&)',
         ]);
 
         if (isset($data['password'])) {

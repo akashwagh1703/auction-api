@@ -16,6 +16,15 @@ return Application::configure(basePath: dirname(__DIR__))
         // CORS — allow frontend origin
         $middleware->append(\Illuminate\Http\Middleware\HandleCors::class);
 
+        // Security headers
+        $middleware->append(\App\Http\Middleware\SecurityHeaders::class);
+
+        // API error handling
+        $middleware->append(\App\Http\Middleware\HandleApiErrors::class);
+
+        // Request/response logging
+        $middleware->append(\App\Http\Middleware\LogApiRequests::class);
+
         // Register role middleware alias
         $middleware->alias([
             'role' => \App\Http\Middleware\RoleMiddleware::class,

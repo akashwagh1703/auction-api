@@ -3,9 +3,13 @@
 namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\SoftDeletes;
+use App\Traits\Auditable;
 
 class Auction extends Model
 {
+    use SoftDeletes, Auditable;
+
     protected $fillable = ['name', 'sport', 'date', 'description', 'status', 'bid_timer', 'bid_increments', 'budget_per_team', 'max_players_per_team'];
 
     protected $casts = ['bid_increments' => 'array'];
