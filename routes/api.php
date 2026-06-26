@@ -2,8 +2,7 @@
 
 use App\Http\Controllers\Api\AuthController;
 use App\Http\Controllers\Api\AuctionController;
-use App\Http\Controllers\Api\ChatController;
-use App\Http\Controllers\Api\LiveAuctionController;
+use App\Http\Controllers\Api\BiddingController;
 use App\Http\Controllers\Api\PlayerController;
 use App\Http\Controllers\Api\TeamController;
 use App\Http\Controllers\Api\UserController;
@@ -59,23 +58,16 @@ Route::prefix('v1')->group(function () {
             Route::put('/auctions/{auction}/players',         [AuctionController::class, 'attachPlayers']);
         });
 
-        // Live auction — state + bids: all roles | actions: admin only
-        Route::get('/auctions/{auction}/state',  [LiveAuctionController::class, 'state']);
-        Route::get('/auctions/{auction}/bids',   [LiveAuctionController::class, 'bids']);
-        Route::middleware('role:admin')->group(function () {
-            Route::post('/auctions/{auction}/start',       [LiveAuctionController::class, 'start']);
-            Route::post('/auctions/{auction}/stop',        [LiveAuctionController::class, 'stop']);
-            Route::post('/auctions/{auction}/next-player', [LiveAuctionController::class, 'nextPlayer']);
-            Route::post('/auctions/{auction}/sold',        [LiveAuctionController::class, 'soldPlayer']);
-            Route::post('/auctions/{auction}/unsold',      [LiveAuctionController::class, 'markUnsold']);
-            Route::post('/auctions/{auction}/re-auction',  [LiveAuctionController::class, 'reAuction']);
+        // Bidding — HTTP-based polling (replaces WebSocket)
+        Route::get('/auctions/{auction}/state',     [BiddingController::class, 'getAuctionState']);
+        Route::middleware('role:admin,owner')->group(function () {
+            Route::post('/auctions/{auction}/players/{player}/bid', [BiddingController::class, 'placeBid']);
         });
-        // Place bid — owners + admin
-        Route::middleware('role:admin,owner')->post('/auctions/{auction}/bid', [LiveAuctionController::class, 'placeBid']);
-
-        // Chat — read + send: all roles
-        Route::get('/auctions/{auction}/chat',  [ChatController::class, 'index']);
-        Route::post('/auctions/{auction}/chat', [ChatController::class, 'store']);
+        Route::middleware('role:admin')->group(function () {
+            Route::post('/auctions/{auction}/players/{player}/sold',   [BiddingController::class, 'markSold']);
+            Route::post('/auctions/{auction}/players/{player}/unsold', [BiddingController::class, 'markUnsold']);
+            Route::post('/auctions/{auction}/next-player',           [BiddingController::class, 'nextPlayer']);
+        });
 
         // Users — admin only
         Route::middleware('role:admin')->group(function () {
